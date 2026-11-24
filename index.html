@@ -63,6 +63,7 @@
   <script type="text/babel">
     const { useState, useEffect, useCallback, useRef } = React;
 
+    // ランチメニュー単元に特化した英単語リスト（1つ目のコードを維持）
     const QUIZ_WORDS = [
       { ja: 'フライドチキン', en: 'fried chicken' }, { ja: 'フライドポテト', en: 'French fries' }, { ja: 'オムレツ', en: 'omelet' },
       { ja: 'ステーキ', en: 'steak' }, { ja: '焼き魚', en: 'grilled fish' }, { ja: 'ハンバーガー', en: 'hamburger' },
@@ -82,6 +83,7 @@
       { ja: 'しょっぱい', en: 'salty' }, { ja: '冷たい', en: 'cold' }, { ja: 'やわらかい', en: 'soft' }, { ja: 'かたい', en: 'hard' }
     ];
 
+    // キャラクター進化段階データ
     const INNUUNI_STAGES = {
       1: { id: 1, name: "イッヌーニ", emoji: "🐶", reqExp: 0, next: [2] },
       2: { id: 2, name: "シバイヌーニ", emoji: "🐕", reqExp: 5, next: [3] },
@@ -101,6 +103,7 @@
       16: { id: 16, name: "創造神イッヌ", emoji: "✨", reqExp: 3000, next: [] }
     };
 
+    // ガチャで手に入るエサデータ
     const SALMON_TYPES = {
       normal: { id: 'normal', name: '普通のシャケ', exp: 1, emoji: '🐟' },
       silver: { id: 'silver', name: '銀のシャケ', exp: 3, emoji: '🤍🐟' },
@@ -108,19 +111,21 @@
       legend: { id: 'legend', name: '幻のシャケ', exp: 10, emoji: '🌈🐟' }
     };
 
+    // 翻訳API（Google Apps Script）
     const GAS_URLS = [
       "https://script.google.com/macros/s/AKfycbweESd0ikrHJl6Pl5lPnniXgoUWW45_YDUIAXuCBYKkclBs3T47GX83B5q-GAc8Hw3sPQ/exec",
       "https://script.google.com/a/macros/s.kansai.soka.ed.jp/s/AKfycbyWmVjVU2MWqugLvwaal9Gp768JDQX_ZywK3SyPjpsClR_AaSf9FHR6FPJHVekinpQiUQ/exec",
       "https://script.google.com/macros/s/AKfycbz6Jeiu5yDwBOwWpAIicyXdWqtaT-qT7KjP59DU3b7IkP3eDucpggHW1Fxrm2xBbsQL/exec"
     ];
 
-    // 入力項目を食べ物3つに変更
+    // 入力項目（食べ物3つ）
     const INITIAL_INPUTS = [
       { type: 'food1', label: '１つめの食べ物', example: 'すし' },
       { type: 'food2', label: '２つめの食べ物', example: 'たこ焼き' },
       { type: 'food3', label: '３つめの食べ物', example: 'ラーメン' }
     ];
 
+    // 絵文字からThree.jsのスプライトを作成するヘルパー関数
     const createEmojiSprite = (emoji, size = 64) => {
       const canvas = document.createElement('canvas');
       canvas.width = size * 2; canvas.height = size * 2;
@@ -134,6 +139,7 @@
       return new THREE.Sprite(spriteMat);
     };
 
+    // 3Dコイン集めゲームコンポーネント（2つ目のコードの森背景＋お助けキャラ追尾AIを反映）
     const ThreeCoinGame = ({ playerEmoji, helpers, onFinish }) => {
       const mountRef = useRef(null);
       const [timeLeft, setTimeLeft] = useState(15);
@@ -144,16 +150,16 @@
 
       useEffect(() => {
         if (!mountRef.current) return;
-        
-        // 画面のサイズを正確に取得
-        const w = mountRef.current.clientWidth || window.innerWidth;
-        const h = mountRef.current.clientHeight || (window.innerHeight * 0.6);
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87CEEB); 
         
+        // 画面のサイズを正確に取得
+        const w = mountRef.current.clientWidth || window.innerWidth;
+        const h = mountRef.current.clientHeight || (window.innerHeight * 0.6);
+        
         const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 1000);
-        camera.position.set(0, 60, 0); // カメラを少し近づけて見やすく調整
+        camera.position.set(0, 60, 0);
         camera.up.set(0, 0, -1);
         camera.lookAt(0, 0, 0);
 
@@ -161,7 +167,34 @@
         renderer.setSize(w, h);
         mountRef.current.appendChild(renderer.domElement);
 
-        const grid = new THREE.GridHelper(100, 50, 0xffffff, 0xffffff);
+        // カメラが映せる「安全な範囲」を計算（画面外に出ないようにする）
+        const vFov = camera.fov * Math.PI / 180;
+        const zRange = 2 * Math.tan(vFov / 2) * camera.position.y;
+        const xRange = zRange * camera.aspect;
+        const safeX = Math.max(10, (xRange / 2) * 0.9);
+        const safeZ = Math.max(10, (zRange / 2) * 0.9);
+
+        // --- 森の背景を追加 ---
+        const planeGeo = new THREE.PlaneGeometry(150, 150);
+        const planeMat = new THREE.MeshLambertMaterial({ color: 0x2d8a4e }); // 森の緑
+        const plane = new THREE.Mesh(planeGeo, planeMat);
+        plane.rotation.x = -Math.PI / 2;
+        scene.add(plane);
+
+        // 木をランダムに配置（プレイエリアを避ける）
+        for (let i = 0; i < 40; i++) {
+          const tree = createEmojiSprite(Math.random() > 0.5 ? '🌲' : '🌳', 96);
+          tree.scale.set(8, 8, 1);
+          const tx = (Math.random() - 0.5) * 120;
+          const tz = (Math.random() - 0.5) * 120;
+          if (Math.abs(tx) > safeX - 2 || Math.abs(tz) > safeZ - 2) {
+            tree.position.set(tx, 4, tz);
+            scene.add(tree);
+          }
+        }
+        // --------------------
+
+        const grid = new THREE.GridHelper(100, 50, 0x1a4a2b, 0x1a4a2b);
         grid.material.opacity = 0.5;
         grid.material.transparent = true;
         scene.add(grid);
@@ -172,15 +205,8 @@
         dirLight.position.set(10, 20, 10);
         scene.add(dirLight);
 
-        // カメラが映せる「安全な範囲」を計算（画面外に出ないようにする）
-        const vFov = camera.fov * Math.PI / 180;
-        const zRange = 2 * Math.tan(vFov / 2) * camera.position.y;
-        const xRange = zRange * camera.aspect;
-        const safeX = Math.max(10, (xRange / 2) * 0.9);
-        const safeZ = Math.max(10, (zRange / 2) * 0.9);
-
-        const playerSprite = createEmojiSprite(playerEmoji, 64);
-        playerSprite.scale.set(6, 6, 1);
+        const playerSprite = createEmojiSprite(playerEmoji, 96);
+        playerSprite.scale.set(5, 5, 1);
         playerSprite.position.y = 2.5;
         scene.add(playerSprite);
         gameData.current.playerSprite = playerSprite;
@@ -188,27 +214,26 @@
         const spawnCoin = () => {
           const coin = createEmojiSprite('🪙', 64);
           coin.scale.set(4, 4, 1);
-          // 安全な範囲（safeX, safeZ）の中にだけコインを配置
           coin.position.set((Math.random() - 0.5) * safeX * 2, 1.5, (Math.random() - 0.5) * safeZ * 2);
           scene.add(coin);
           gameData.current.coins.push(coin);
         };
-        for(let i=0; i<12; i++) spawnCoin();
+        for(let i = 0; i < 12; i++) spawnCoin();
 
         const spawnEnemy = () => {
           const enemy = createEmojiSprite('👾', 64);
-          enemy.scale.set(5, 5, 1);
+          enemy.scale.set(4, 4, 1);
           enemy.position.set((Math.random() - 0.5) * safeX * 2, 2, (Math.random() - 0.5) * safeZ * 2);
           enemy.userData = { dx: (Math.random() - 0.5) * 0.6, dz: (Math.random() - 0.5) * 0.6 };
           scene.add(enemy);
           gameData.current.enemies.push(enemy);
         };
-        for(let i=0; i<8; i++) spawnEnemy();
+        for(let i = 0; i < 8; i++) spawnEnemy();
 
         if (helpers && helpers.length > 0) {
           helpers.forEach(h => {
             const helperSprite = createEmojiSprite(h.emoji, 64);
-            helperSprite.scale.set(4.5, 4.5, 1);
+            helperSprite.scale.set(3.5, 3.5, 1);
             helperSprite.position.set((Math.random() - 0.5) * safeX * 2, 2, (Math.random() - 0.5) * safeZ * 2);
             helperSprite.userData = { dx: (Math.random() - 0.5) * 0.5, dz: (Math.random() - 0.5) * 0.5 };
             scene.add(helperSprite);
@@ -252,14 +277,15 @@
             if (keys['ArrowRight'] || keys['d']) dx += speed;
             playerSprite.position.x += dx;
             playerSprite.position.z += dz;
-            // プレイヤーも画面外に出ないように制限
+            
+            // プレイヤーの移動を安全な範囲に制限
             playerSprite.position.x = Math.max(-safeX, Math.min(safeX, playerSprite.position.x));
             playerSprite.position.z = Math.max(-safeZ, Math.min(safeZ, playerSprite.position.z));
           }
 
+          // コイン取得判定
           for (let i = coins.length - 1; i >= 0; i--) {
             const c = coins[i];
-            // コインの当たり判定を少し広く調整 (3.5 -> 4.0)
             if (playerSprite.position.distanceTo(c.position) < 4.0) {
               scene.remove(c);
               coins.splice(i, 1);
@@ -269,29 +295,54 @@
             }
           }
 
+          // 敵の移動とプレイヤーとの衝突判定
           enemies.forEach(e => {
             e.position.x += e.userData.dx;
             e.position.z += e.userData.dz;
-            // 敵が画面の端で跳ね返るように制限
             if (e.position.x > safeX || e.position.x < -safeX) e.userData.dx *= -1;
             if (e.position.z > safeZ || e.position.z < -safeZ) e.userData.dz *= -1;
             
             if (gameData.current.frozenFrames === 0 && playerSprite.position.distanceTo(e.position) < 3.5) {
               gameData.current.frozenFrames = 60;
-              if (mountRef.current) {
+              if (mountRef.current && mountRef.current.parentElement) {
                 mountRef.current.parentElement.classList.add('shake-animation');
                 setTimeout(() => {
-                  if(mountRef.current && mountRef.current.parentElement) mountRef.current.parentElement.classList.remove('shake-animation');
+                  if (mountRef.current && mountRef.current.parentElement) {
+                    mountRef.current.parentElement.classList.remove('shake-animation');
+                  }
                 }, 500);
               }
             }
           });
 
+          // お助けキャラの追尾AIと敵撃破判定
           helperSprites.forEach(h => {
+            let closestEnemy = null;
+            let minDist = Infinity;
+            enemies.forEach(e => {
+              const d = h.position.distanceTo(e.position);
+              if (d < minDist) {
+                minDist = d;
+                closestEnemy = e;
+              }
+            });
+
+            if (closestEnemy) {
+              const dx = closestEnemy.position.x - h.position.x;
+              const dz = closestEnemy.position.z - h.position.z;
+              const dist = Math.sqrt(dx * dx + dz * dz);
+              if (dist > 0) {
+                h.userData.dx = (dx / dist) * 0.7;
+                h.userData.dz = (dz / dist) * 0.7;
+              }
+            }
+
             h.position.x += h.userData.dx;
             h.position.z += h.userData.dz;
-            if (h.position.x > safeX || h.position.x < -safeX) h.userData.dx *= -1;
-            if (h.position.z > safeZ || h.position.z < -safeZ) h.userData.dz *= -1;
+            if (h.position.x > safeX) { h.position.x = safeX; h.userData.dx *= -1; }
+            if (h.position.x < -safeX) { h.position.x = -safeX; h.userData.dx *= -1; }
+            if (h.position.z > safeZ) { h.position.z = safeZ; h.userData.dz *= -1; }
+            if (h.position.z < -safeZ) { h.position.z = -safeZ; h.userData.dz *= -1; }
 
             enemies.forEach(e => {
               if (h.position.distanceTo(e.position) < 4.0) {
@@ -353,6 +404,7 @@
       
       const [inputs, setInputs] = useState(JSON.parse(JSON.stringify(INITIAL_INPUTS)));
       const [translatingState, setTranslatingState] = useState(false);
+      const [listeningIdx, setListeningIdx] = useState(null);
       
       const [savedWorks, setSavedWorks] = useState([]);
       const [createdSentences, setCreatedSentences] = useState([]); 
@@ -361,10 +413,11 @@
       const [canPlayGame, setCanPlayGame] = useState(false);
       const [isFirstWork, setIsFirstWork] = useState(true);
 
-      const [listeningIdx, setListeningIdx] = useState(null);
       const [isListening, setIsListening] = useState(false);
       const [feedbackMsg, setFeedbackMsg] = useState("");
+      const [noticeMsg, setNoticeMsg] = useState(""); // 画面内通知用メッセージ（alertの代替）
       const [slideFailCount, setSlideFailCount] = useState(0);
+      const [gachaFailCount, setGachaFailCount] = useState(0); // ガチャ発音チャレンジの失敗回数
       const [localVoiceCleared, setLocalVoiceCleared] = useState(false); 
       const [gachaState, setGachaState] = useState(null); 
       const [quizOptions, setQuizOptions] = useState([]);
@@ -373,11 +426,25 @@
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       const synth = window.speechSynthesis;
+      const gachaTargetRef = useRef(null);
+      const noticeTimerRef = useRef(null);
 
+      // 画面内通知を表示するヘルパー関数
+      const showNotice = useCallback((msg) => {
+        setNoticeMsg(msg);
+        if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+        noticeTimerRef.current = setTimeout(() => setNoticeMsg(""), 3500);
+      }, []);
+
+      // ローカルストレージからセーブデータを読み込み
       useEffect(() => {
         const load = (key, setter, isObj = false) => {
-          const val = localStorage.getItem(key);
-          if (val) setter(isObj ? JSON.parse(val) : parseInt(val, 10));
+          try {
+            const val = localStorage.getItem(key);
+            if (val) setter(isObj ? JSON.parse(val) : parseInt(val, 10));
+          } catch (e) {
+            console.warn("Storage load error:", key, e);
+          }
         };
         load('wTJapanCoins', setTotalCoins);
         load('wTJapanItems', setItems, true);
@@ -432,6 +499,7 @@
       };
 
       const speak = useCallback((text) => {
+        if (!synth) return;
         if (synth.speaking) synth.cancel();
         const utterThis = new SpeechSynthesisUtterance(text);
         utterThis.lang = 'en-US';
@@ -457,54 +525,76 @@
         }
       };
 
+      // 英語発音の音声認識処理
       const startListening = (targetSentence, onSuccess, onFail) => {
         if (!SpeechRecognition) {
           setFeedbackMsg("マイクが使えません。");
-          if(onFail) onFail();
+          if (onFail) onFail();
           return;
         }
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'en-US';
-        setIsListening(true);
-        setFeedbackMsg("");
+        try {
+          const recognition = new SpeechRecognition();
+          recognition.lang = 'en-US';
+          setIsListening(true);
+          setFeedbackMsg("");
 
-        recognition.onresult = (event) => {
-          const trans = event.results[0][0].transcript.toLowerCase();
-          
-          const transWords = trans.replace(/[^a-z\s]/g, '').split(/\s+/).filter(w => w);
-          const targetWords = targetSentence.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(w => w);
-          
-          let matchCount = 0;
-          targetWords.forEach(tw => {
-            if (transWords.includes(tw)) matchCount++;
-          });
-          const matchRate = targetWords.length > 0 ? (matchCount / targetWords.length) : 0;
-          
-          if (matchRate >= 0.5 || trans.replace(/[^a-z\s]/g, '') === targetSentence.toLowerCase().replace(/[^a-z\s]/g, '')) {
-            setFeedbackMsg("Excellent! 👏");
-            setTimeout(() => { setFeedbackMsg(""); onSuccess(); }, 1500);
-          } else {
-            setFeedbackMsg(`おしい！\n(${trans} と聞こえました)`);
-            if(onFail) onFail();
-          }
-        };
-        recognition.onerror = () => { setFeedbackMsg("エラーがおきました。もう一度押してね。"); setIsListening(false); if(onFail) onFail(); };
-        recognition.onend = () => setIsListening(false);
-        recognition.start();
+          recognition.onresult = (event) => {
+            const trans = event.results[0][0].transcript.toLowerCase();
+            
+            const transWords = trans.replace(/[^a-z\s]/g, '').split(/\s+/).filter(w => w);
+            const targetWords = targetSentence.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(w => w);
+            
+            let matchCount = 0;
+            targetWords.forEach(tw => {
+              if (transWords.includes(tw)) matchCount++;
+            });
+            const matchRate = targetWords.length > 0 ? (matchCount / targetWords.length) : 0;
+            
+            if (matchRate >= 0.5 || trans.replace(/[^a-z\s]/g, '') === targetSentence.toLowerCase().replace(/[^a-z\s]/g, '')) {
+              setFeedbackMsg("Excellent! 👏");
+              setTimeout(() => { setFeedbackMsg(""); onSuccess(); }, 1500);
+            } else {
+              setFeedbackMsg(`おしい！\n(${trans} と聞こえました)`);
+              if (onFail) onFail();
+            }
+          };
+          recognition.onerror = () => {
+            setFeedbackMsg("エラーがおきました。もう一度押してね。");
+            setIsListening(false);
+            if (onFail) onFail();
+          };
+          recognition.onend = () => setIsListening(false);
+          recognition.start();
+        } catch (err) {
+          setFeedbackMsg("マイクの起動に失敗しました。");
+          setIsListening(false);
+          if (onFail) onFail();
+        }
       };
 
+      // 入力された3つの食べ物を翻訳し、英文を生成する処理
       const handleTranslateAll = async () => {
-        setTranslatingState(true);
-        let f1 = inputs[0].action?.trim() || "";
-        let f2 = inputs[1].action?.trim() || "";
-        let f3 = inputs[2].action?.trim() || "";
+        const f1 = inputs[0].action?.trim() || "";
+        const f2 = inputs[1].action?.trim() || "";
+        const f3 = inputs[2].action?.trim() || "";
         
+        if (!f1 || !f2 || !f3) return;
+
+        // 重複食べ物チェック（2つ目のコードの機能）
+        if (f1 === f2 || f1 === f3 || f2 === f3) {
+          showNotice("２つ以上同じ食べ物にすることはできません。ちがう食べ物をえらんでね！");
+          return;
+        }
+
+        setTranslatingState(true);
+        
+        // QUIZ_WORDSを優先参照し、なければGAS APIで翻訳
         const translateFood = async (jaWord) => {
           if (!jaWord) return "";
           const found = QUIZ_WORDS.find(w => w.ja === jaWord);
           if (found) return found.en;
           try {
-            const res = await fetch(`${GAS_URLS[0]}?text=${encodeURIComponent(jaWord)}`).then(r=>r.json());
+            const res = await fetch(`${GAS_URLS[0]}?text=${encodeURIComponent(jaWord)}`).then(r => r.json());
             return res.text ? res.text.toLowerCase() : jaWord;
           } catch (e) {
             console.warn("Translation API error", e);
@@ -512,16 +602,19 @@
           }
         };
 
-        let enF1 = await translateFood(f1);
-        let enF2 = await translateFood(f2);
-        let enF3 = await translateFood(f3);
+        const enF1 = await translateFood(f1);
+        const enF2 = await translateFood(f2);
+        const enF3 = await translateFood(f3);
 
-        let finalSentence = `What would you like? I'd like ${enF1}, ${enF2} and ${enF3}.`;
+        // 生成される英文（2つめの料理のあとにカンマを追加）
+        const finalSentence = `What would you like? I'd like ${enF1}, ${enF2}, and ${enF3}.`;
 
         setTranslatingState(false);
         
-        if (createdSentences.includes(finalSentence)) {
-          alert("その文章はもう作ったことがあるよ！ちがう文章を作ってみよう。");
+        // 大文字・小文字を区別しない重複チェック（2つ目のコードの改善）
+        const isDuplicate = createdSentences.some(s => s.toLowerCase() === finalSentence.toLowerCase());
+        if (isDuplicate) {
+          showNotice("その文章はもう作ったことがあるよ！ちがう文章を作ってみよう。");
           return;
         }
 
@@ -555,12 +648,13 @@
       const startGacha = () => {
         if (totalCoins < 5) return;
         const nextCoins = totalCoins - 5;
+        setGachaFailCount(0); // 失敗回数をリセット
         
         const targetWord = QUIZ_WORDS[Math.floor(Math.random() * QUIZ_WORDS.length)];
         let options = [targetWord];
-        while(options.length < 4) {
+        while (options.length < 4) {
           const w = QUIZ_WORDS[Math.floor(Math.random() * QUIZ_WORDS.length)];
-          if(!options.find(o => o.en === w.en)) options.push(w);
+          if (!options.find(o => o.en === w.en)) options.push(w);
         }
         options = options.sort(() => Math.random() - 0.5);
         
@@ -570,11 +664,9 @@
         rollGacha(false, true, nextCoins); 
       };
 
-      const gachaTargetRef = useRef(null);
-
       const handleQuizAnswer = (ans) => {
         if (ans.en === gachaTargetRef.current.en) {
-          setGachaState(prev => ({...prev, phase: 'voice'}));
+          setGachaState(prev => ({ ...prev, phase: 'voice' }));
         } else {
           setFeedbackMsg("ちがうよ！もういちど！");
           setTimeout(() => setFeedbackMsg(""), 1500);
@@ -587,10 +679,10 @@
           const newItems = { ...items, [type]: items[type] - 1 };
           const newExp = exp + salmon.exp;
           
-          let currentStage = INNUUNI_STAGES[level];
-          let nextReq = currentStage.next.length > 0 ? INNUUNI_STAGES[currentStage.next[0]].reqExp : 9999;
+          const currentStage = INNUUNI_STAGES[level];
+          const nextReq = currentStage.next.length > 0 ? INNUUNI_STAGES[currentStage.next[0]].reqExp : 9999;
           let newLevel = level;
-          let newHelpers = [...helpers];
+          const newHelpers = [...helpers];
           
           if (newExp >= nextReq && currentStage.next.length > 0) {
             newLevel = currentStage.next[0];
@@ -668,7 +760,7 @@
                     <div className="text-7xl mb-2 drop-shadow-md">{currentStage.emoji}</div>
                     <div className="font-bold text-indigo-800 mb-2 text-xl">{currentStage.name} (Lv.{level})</div>
                     <div className="w-full bg-gray-200 rounded-full h-4 mb-2 overflow-hidden border border-gray-300">
-                      <div className="bg-blue-500 h-4 rounded-full transition-all duration-500" style={{ width: nextReq === 'MAX' ? '100%' : `${(exp / nextReq) * 100}%` }}></div>
+                      <div className="bg-blue-500 h-4 rounded-full transition-all duration-500" style={{ width: nextReq === 'MAX' ? '100%' : `${Math.min(100, (exp / nextReq) * 100)}%` }}></div>
                     </div>
                     <div className="text-xs font-bold text-gray-500 mb-4">EXP: {exp} / {nextReq}</div>
                     
@@ -731,18 +823,37 @@
                           </button>
                         ))}
                       </div>
-                      {feedbackMsg && <p className="text-red-500 font-bold mt-4 animate-shake">{feedbackMsg}</p>}
+                      {feedbackMsg && <p className="text-red-500 font-bold mt-4 shake-animation">{feedbackMsg}</p>}
                     </div>
                   )}
                   {gachaState.phase === 'voice' && (
                     <div className="animate-fade-in-up">
                       <h3 className="text-2xl font-bold text-green-700 mb-2">大正解！🎉</h3>
                       <p className="text-gray-600 font-bold mb-6">マイクで正しく発音できたら<span className="text-red-500">ボーナスガチャ</span>！</p>
-                      <div className="text-4xl font-bold text-gray-800 mb-6 font-note">{gachaTargetRef.current.en}</div>
                       
-                      <button onClick={() => startListening(gachaTargetRef.current.en, () => rollGacha(true, false))} disabled={isListening} className={`w-20 h-20 rounded-full shadow-lg text-3xl mb-4 ${isListening ? 'bg-red-500 animate-pulse' : 'bg-teal-500 hover:bg-teal-600'} text-white transition`}>🎤</button>
+                      {/* 音声再生ボタンを追加（2つ目のコードの改善） */}
+                      <div className="text-4xl font-bold text-gray-800 mb-6 font-note flex items-center justify-center gap-4">
+                        {gachaTargetRef.current.en}
+                        <button onClick={() => speak(gachaTargetRef.current.en)} className="bg-blue-100 p-2 rounded-full text-xl shadow-sm border border-blue-200">🔊</button>
+                      </div>
+                      
+                      <button onClick={() => startListening(
+                        gachaTargetRef.current.en, 
+                        () => rollGacha(true, false),
+                        () => setGachaFailCount(prev => prev + 1)
+                      )} disabled={isListening} className={`w-20 h-20 rounded-full shadow-lg text-3xl mb-4 ${isListening ? 'bg-red-500 animate-pulse' : 'bg-teal-500 hover:bg-teal-600'} text-white transition`}>🎤</button>
+                      
+                      {/* 3回失敗で特別クリアボタン出現（2つ目のコードの改善） */}
+                      {gachaFailCount >= 3 && (
+                        <div className="mb-4">
+                          <button onClick={() => rollGacha(true, false)} className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-full font-bold shadow-md animate-bounce">
+                            🌟 特別クリア
+                          </button>
+                        </div>
+                      )}
+
                       <p className="font-bold text-gray-600 mb-4">{isListening ? "はなしてね..." : "マイクをおして発音！"}</p>
-                      {feedbackMsg && <p className="text-blue-600 font-bold mb-4">{feedbackMsg}</p>}
+                      {feedbackMsg && <p className="text-blue-600 font-bold mb-4 whitespace-pre-line">{feedbackMsg}</p>}
 
                       <button onClick={() => setGachaState(null)} className="text-gray-500 underline font-bold mt-4 block w-full bg-gray-100 py-2 rounded-lg hover:bg-gray-200">スキップしてボーナスを諦める</button>
                     </div>
@@ -781,31 +892,43 @@
           <div className="min-h-screen p-4 flex flex-col items-center py-12 relative bg-indigo-50">
             <BackButton />
             <HomeButton />
-            <div className="w-full max-w-xl text-center pb-24">
-              <h2 className="text-2xl font-bold text-indigo-700 mb-6 bg-white py-3 rounded-full border-4 border-indigo-200 shadow-sm">注文したい食べ物を えいごで言おう！</h2>
+            <div className="w-full max-w-xl text-center pb-24 mt-8">
+              <h2 className="text-2xl font-bold text-indigo-700 mb-6 bg-white py-3 rounded-full border-4 border-indigo-200 shadow-sm">注文したい食べ物を かこう！</h2>
               
               <div className="bg-white p-6 rounded-2xl mb-6 border-4 border-indigo-100 shadow-md text-left">
                 {inputs.map((inp, idx) => (
                   <div key={idx} className="mb-6 border-b border-gray-100 pb-4 last:border-0 last:pb-0">
-                    <h3 className="font-bold text-gray-700 mb-2 flex items-center">✨ {idx + 1}. {inp.label}</h3>
+                    <h3 className="font-bold text-gray-700 mb-2 flex items-center">
+                      ✨ {idx + 1}. {inp.label}
+                      {inp.example && <span className="ml-2 text-xs font-normal text-gray-400">例: {inp.example}</span>}
+                    </h3>
                     
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 mb-2">
                       <button onClick={() => {
                         if (!SpeechRecognition) {
-                          alert("マイクが使えません。");
+                          showNotice("マイクが使えません。キーボードで入力してね。");
                           return;
                         }
-                        const recognition = new SpeechRecognition();
-                        recognition.lang = 'ja-JP';
-                        setListeningIdx(idx);
-                        recognition.onresult = (event) => {
-                          const trans = event.results[0][0].transcript;
-                          const newInputs = [...inputs];
-                          newInputs[idx].action = trans;
-                          setInputs(newInputs);
-                        };
-                        recognition.onend = () => setListeningIdx(null);
-                        recognition.start();
+                        try {
+                          const recognition = new SpeechRecognition();
+                          recognition.lang = 'ja-JP';
+                          setListeningIdx(idx);
+                          recognition.onresult = (event) => {
+                            const trans = event.results[0][0].transcript;
+                            const newInputs = [...inputs];
+                            newInputs[idx].action = trans;
+                            setInputs(newInputs);
+                          };
+                          recognition.onerror = () => {
+                            setListeningIdx(null);
+                            showNotice("マイクの認識でエラーが起きました。もう一度ためしてね。");
+                          };
+                          recognition.onend = () => setListeningIdx(null);
+                          recognition.start();
+                        } catch (e) {
+                          setListeningIdx(null);
+                          showNotice("マイクが起動できませんでした。");
+                        }
                       }} className={`shrink-0 w-16 h-16 rounded-full shadow-md text-2xl flex items-center justify-center transition ${listeningIdx === idx ? 'bg-red-500 text-white animate-pulse' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}>🎤</button>
                       
                       <input type="text" value={inp.action || ''} onChange={e => {
@@ -822,9 +945,19 @@
                     <p className="text-blue-700 font-bold text-lg">⏳ ほんやく中...</p>
                   </div>
                 ) : (
-                  <button onClick={handleTranslateAll} disabled={!isAllInputsFilled} className={`w-full mt-4 text-xl font-bold py-5 rounded-xl shadow-md transition transform ${isAllInputsFilled ? 'bg-indigo-500 hover:bg-indigo-600 text-white hover:-translate-y-1' : 'bg-gray-400 text-gray-200 cursor-not-allowed'}`}>
-                    えいごの文にする！
-                  </button>
+                  <>
+                    {/* 注意書きパネル（2つ目のコードの改善） */}
+                    <div className="bg-yellow-50 p-4 rounded-xl border-2 border-yellow-200 mt-4 text-left">
+                      <p className="text-sm font-bold text-gray-700">⚠️ おねがい</p>
+                      <ul className="text-xs font-bold text-gray-600 list-disc ml-5 mt-1">
+                        <li>3つのわくに「同じ食べ物」を2つ以上いれることはできません。</li>
+                        <li>前に作ったスライドと「まったく同じ文章」は作れません。</li>
+                      </ul>
+                    </div>
+                    <button onClick={handleTranslateAll} disabled={!isAllInputsFilled} className={`w-full mt-4 text-xl font-bold py-5 rounded-xl shadow-md transition transform ${isAllInputsFilled ? 'bg-indigo-500 hover:bg-indigo-600 text-white hover:-translate-y-1' : 'bg-gray-400 text-gray-200 cursor-not-allowed'}`}>
+                      えいごの文にする！
+                    </button>
+                  </>
                 )}
                 {!isAllInputsFilled && <p className="text-center text-sm text-red-500 font-bold mt-3">※すべてのわくに入力してね！</p>}
               </div>
@@ -874,7 +1007,7 @@
                 <div className="bg-gray-100 p-4 rounded-xl border border-gray-200 flex min-w-max">
                   <span className="font-note font-bold flex items-baseline flex-nowrap gap-2 text-2xl py-2 w-full">
                     <input type="text" value={viewingWork.sentence} onChange={e => {
-                      setViewingWork({...viewingWork, sentence: e.target.value});
+                      setViewingWork({ ...viewingWork, sentence: e.target.value });
                     }} className="border-b-2 border-teal-400 focus:outline-none focus:bg-teal-50 px-2 pb-0 text-teal-700 bg-transparent min-w-[500px] leading-none m-0 font-note w-full" />
                   </span>
                 </div>
@@ -896,21 +1029,21 @@
                            viewingWork.img2 && viewingWork.img2.trim() !== "" &&
                            viewingWork.img3 && viewingWork.img3.trim() !== "";
         
-        let keyword1 = viewingWork?.inputs?.[0]?.action || 'Japan Food';
-        let keyword2 = viewingWork?.inputs?.[1]?.action || 'Japan Food';
-        let keyword3 = viewingWork?.inputs?.[2]?.action || 'Japan Food';
+        const keyword1 = viewingWork?.inputs?.[0]?.action || 'Japan Food';
+        const keyword2 = viewingWork?.inputs?.[1]?.action || 'Japan Food';
+        const keyword3 = viewingWork?.inputs?.[2]?.action || 'Japan Food';
         
         content = (
           <div className="min-h-screen p-4 flex flex-col items-center py-12 relative bg-indigo-50">
             <BackButton />
             <HomeButton />
-            <div className="w-full max-w-2xl bg-white p-6 md:p-8 rounded-3xl shadow-xl border-4 border-indigo-200">
+            <div className="w-full max-w-2xl bg-white p-6 md:p-8 rounded-3xl shadow-xl border-4 border-indigo-200 mt-12">
               <h2 className="text-2xl font-bold text-indigo-700 mb-6 text-center">スライドの文章を かくにん・修正しよう✍️</h2>
               
               <div className="bg-gray-50 p-6 rounded-2xl border-2 border-gray-200 shadow-inner mb-8">
                 <label className="block text-sm font-bold text-gray-600 mb-2">文章 (自由に直せるよ)</label>
                 <textarea value={viewingWork.sentence} onChange={e => {
-                  setViewingWork({...viewingWork, sentence: e.target.value});
+                  setViewingWork({ ...viewingWork, sentence: e.target.value });
                 }} className="w-full p-4 border-2 border-indigo-300 rounded-xl font-note text-2xl text-gray-800 focus:outline-none focus:bg-white bg-transparent resize-none leading-relaxed" rows="3" />
                 <button onClick={() => speak(viewingWork.sentence)} className="mt-2 bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold py-2 px-4 rounded-lg shadow-sm border border-blue-300">🔊 音声で聞く</button>
               </div>
@@ -931,12 +1064,12 @@
 
                     <label className="block text-sm font-bold text-gray-600 mb-2">画像アドレスをはりつけ</label>
                     <input type="text" value={viewingWork[item.key] || ''} onChange={e => {
-                      setViewingWork({...viewingWork, [item.key]: e.target.value});
+                      setViewingWork({ ...viewingWork, [item.key]: e.target.value });
                     }} placeholder="https://..." className="w-full p-4 border-2 border-gray-300 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-500 bg-white mb-4" />
                     
                     {viewingWork[item.key] && (
                       <div className="relative flex justify-center">
-                        <img src={viewingWork[item.key]} alt={`preview ${idx}`} onError={(e) => {e.target.style.display='none'; e.target.parentElement.innerHTML = '<div class="text-red-500 font-bold bg-red-50 p-3 rounded-lg border-2 border-red-200 text-sm">画像が読み込めません💦 別のアドレスをためしてね！</div>';}} className="h-32 object-cover rounded-lg shadow-md border-2 border-gray-300" />
+                        <img src={viewingWork[item.key]} alt={`preview ${idx}`} onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<div class="text-red-500 font-bold bg-red-50 p-3 rounded-lg border-2 border-red-200 text-sm">画像が読み込めません💦 別のアドレスをためしてね！</div>'; }} className="h-32 object-cover rounded-lg shadow-md border-2 border-gray-300" />
                       </div>
                     )}
                   </div>
@@ -957,7 +1090,7 @@
                     setFeedbackMsg("");
                     goToStep('VIEW_SLIDESHOW'); 
                   } else {
-                    alert("3つすべての画像アドレスを入れてね！");
+                    showNotice("3つすべての画像アドレスを入れてね！");
                   }
                 }} 
                 className={`w-full mt-8 text-white text-xl font-bold py-5 rounded-2xl shadow-lg transition transform ${canProceed ? 'bg-blue-500 hover:bg-blue-600 hover:-translate-y-1' : 'bg-gray-400 cursor-not-allowed'}`}>
@@ -978,6 +1111,7 @@
           }
         };
 
+        // ? と . の両方で文を分割（What would you like? と I'd like ... の2文に対応）
         const practiceSentences = viewingWork.sentence.match(/[^.?]+[.?]+/g)?.map(s => s.trim()) || [viewingWork.sentence];
         const targetSentence = practiceSentences[practiceIndex] || '';
 
@@ -1136,6 +1270,15 @@
 
       return (
         <div className={`relative ${step === 'GAME' ? 'h-screen w-screen overflow-hidden' : 'min-h-screen'}`}>
+          {/* 画面内トースト通知（alertの代替） */}
+          {noticeMsg && (
+            <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] w-[90%] max-w-md animate-fade-in-up">
+              <div className="bg-red-600 text-white font-bold px-6 py-4 rounded-2xl shadow-2xl border-4 border-white flex items-center justify-between gap-4">
+                <span className="text-sm md:text-base">{noticeMsg}</span>
+                <button onClick={() => setNoticeMsg("")} className="bg-white/20 hover:bg-white/30 rounded-full w-8 h-8 flex items-center justify-center shrink-0">✕</button>
+              </div>
+            </div>
+          )}
           {content}
         </div>
       );
